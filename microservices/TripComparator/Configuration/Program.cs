@@ -8,11 +8,14 @@ using MassTransit;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.OpenApi.Models;
 using MqContracts;
+using Newtonsoft.Json;
 using RabbitMQ.Client;
 using RestSharp;
 using ServiceMeshHelper;
+using ServiceMeshHelper.BusinessObjects;
 using ServiceMeshHelper.BusinessObjects.InterServiceRequests;
 using ServiceMeshHelper.Controllers;
+using static MassTransit.ValidationResultExtensions;
 
 namespace Configuration
 {
@@ -22,17 +25,13 @@ namespace Configuration
         {
             var builder = WebApplication.CreateBuilder(args);
 
-
-            //var restClient = new RestClient("http://localhost:32772");
-            //var restRequest = new RestRequest("RouteTime/alive");
-            //var test = (await restClient.ExecuteGetAsync<string?>(restRequest)).Data;
-
-            while(PingEcho().Result == "IsAlive")
-            {
-               _ = PingEcho();
-            }
-
             ConfigureServices(builder.Services);
+
+
+            while (await PingEcho() == "IsAlive")
+            {
+                await PingEcho();
+            }
 
             var app = builder.Build();
 
@@ -133,11 +132,22 @@ namespace Configuration
 
         private static async Task<string?> PingEcho()
         {
-            var restClient = new RestClient("http://RouteTimeProvider");
-            var restRequest = new RestRequest("RouteTime/alive");
-            string test = (await restClient.ExecuteGetAsync<string?>(restRequest)).Data;
+            //var restClient = new RestClient("http://RouteTimeProvider");
+            //var restRequest = new RestRequest("RouteTime/alive");
+            //string ping = (await restClient.ExecuteGetAsync<string?>(restRequest)).Data;
 
-            return test!;
+            //return ping!;
+
+            var res = await RestController.Get(new GetRoutingRequest()
+            {
+                TargetService = "RouteTimeProvider",
+                Endpoint = $"RouteTime/alive",
+                Mode = LoadBalancingMode.RoundRobin
+            });
+
+            var restResponse = await res!.ReadAsync();
+
+            return JsonConvert.DeserializeObject<string?>(restResponse.Content);
         }
     }
 }

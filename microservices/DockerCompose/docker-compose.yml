@@ -71,7 +71,7 @@ services:
       - '32772:8080'
     labels:
       ARTIFACT_CATEGORY: Computation
-      Replicas: 3
+      Replicas: RouteTimeProvider, RouteTimeProvider2, RouteTimeProvider3
 
   tripcomparator:
     container_name: TripComparator
