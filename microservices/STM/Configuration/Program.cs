@@ -56,9 +56,9 @@ public class Program
     // set values using environment variables instead
     private const string DbServerAddress = "host.docker.internal";
     private const int DbPort = 5432;
-    private const string DbUsername = "postgres";
-    private const string DbPassword = "Abc123...";
-    private const string DatabaseName = "stmdb";
+    private static readonly string DbUsername = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? throw new Exception("POSTGRES_USER environment variable not found");
+    private static readonly string DbPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new Exception("POSTGRES_PASSWORD environment variable not found");
+    private static readonly string DatabaseName = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? throw new Exception("POSTGRES_DB environment variable not found");
 
     public static void Main(string[] args)
     {

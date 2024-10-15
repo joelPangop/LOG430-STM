@@ -5,7 +5,7 @@ services:
    ports:
      - 5432:5432
    volumes:
-     - /apps/postgres:/var/lib/postgresql/data
+     - data-volume:/apps/postgres/var/lib/postgresql/data
    environment:
       POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
       POSTGRES_USER: '${POSTGRES_USER}'
@@ -30,8 +30,9 @@ services:
       MQ_SERVICE_NAME: EventStream
       CUSTOM_CONTAINER_PORTS_DISCOVERY: 5672,5432,80
       BRIDGE_PORT: 32674
+      DEBUG: true
       # Trace > Information > Error
-      Logging__LogLevel__Default: Information
+      Logging__LogLevel__Default: Trace
       CONNECT_TO_INGRESS: true
     volumes: 
       - /var/run/docker.sock:/var/run/docker.sock
@@ -71,7 +72,7 @@ services:
       - '32772:8080'
     labels:
       ARTIFACT_CATEGORY: Computation
-      Replicas: RouteTimeProvider, RouteTimeProvider2, RouteTimeProvider3
+      Replicas: EventStream, EventStream2, EventStream3
 
   tripcomparator:
     container_name: TripComparator
@@ -105,12 +106,18 @@ services:
       API_KEY: '${STM}'
       # HIGH (3gb) > MEDIUM (1.5gb) > LOW (300mb)
       MEMORY_CONSUMPTION: LOW
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRES_USER: '${POSTGRES_USER}'
+      POSTGRES_DB: '${POSTGRES_DB}'
 
     ports:
       - '32774:8080'
     labels:
       ARTIFACT_CATEGORY: Computation
       Replicas: 3
+
     depends_on:
       - postgres
-      
+    
+volumes:
+  data-volume:

@@ -12,11 +12,13 @@ public class TomTomClient : IRouteTimeProvider
 
     private readonly RestClient _restClient = new(TomTomUrl);
 
-    private readonly string _apiKey = Environment.GetEnvironmentVariable("TOMTOM")!;
+    private readonly string _apiKey = Environment.GetEnvironmentVariable("API_KEY")!;
 
     public async Task<int> GetTravelTimeInSeconds(string startingCoordinates, string destinationCoordinates)
     {
         var request = new RestRequest($"routing/1/calculateRoute/{HttpUtility.UrlEncode($"{startingCoordinates}:{destinationCoordinates}")}/json");
+
+        Console.WriteLine("key " + _apiKey);
 
         request.AddQueryParameter("key", _apiKey);
 

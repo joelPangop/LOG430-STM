@@ -1,6 +1,7 @@
 ﻿using Application.Interfaces;
 using Application.Interfaces.Policies;
 using MassTransit.Internals.GraphValidation;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
 using ServiceMeshHelper;
@@ -15,6 +16,7 @@ namespace Infrastructure.Clients;
 public class RouteTimeProviderClient : IRouteTimeProvider
 {
     private readonly IInfiniteRetryPolicy<RouteTimeProviderClient> _infiniteRetry;
+    private static readonly ILogger _logger;
 
     public RouteTimeProviderClient(IInfiniteRetryPolicy<RouteTimeProviderClient> infiniteRetry)
     {
@@ -62,6 +64,9 @@ public class RouteTimeProviderClient : IRouteTimeProvider
         {
             var restClient = new RestClient("http://RouteTimeProvider");
             var restRequest = new RestRequest("RouteTime/alive");
+            var test = (await restClient.ExecuteGetAsync<string?>(restRequest)).Data;
+            _logger.LogInformation(test);
+
             return (await restClient.ExecuteGetAsync<string?>(restRequest)).Data;
         });
     }

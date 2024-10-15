@@ -23,15 +23,14 @@ namespace Configuration
     {
         public static async Task Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+
+            //Thread.Sleep(20000);
+     //       Thread thread = new Thread(new ThreadStart(PingLoop));
+       //     thread.Start();
+
+            var builder = WebApplication.CreateBuilder(args as string[]);
 
             ConfigureServices(builder.Services);
-
-
-            while (await PingEcho() == "IsAlive")
-            {
-                await PingEcho();
-            }
 
             var app = builder.Build();
 
@@ -55,6 +54,15 @@ namespace Configuration
             app.MapControllers();
 
             await app.RunAsync();
+
+        }
+
+        private static async void PingLoop()
+        {
+            while (await PingEcho() == "IsAlive")
+            {
+                await PingEcho();
+            }
         }
 
         private static void ConfigureServices(IServiceCollection services)
@@ -132,12 +140,6 @@ namespace Configuration
 
         private static async Task<string?> PingEcho()
         {
-            //var restClient = new RestClient("http://RouteTimeProvider");
-            //var restRequest = new RestRequest("RouteTime/alive");
-            //string ping = (await restClient.ExecuteGetAsync<string?>(restRequest)).Data;
-
-            //return ping!;
-
             var res = await RestController.Get(new GetRoutingRequest()
             {
                 TargetService = "RouteTimeProvider",
