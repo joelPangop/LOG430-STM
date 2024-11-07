@@ -1,15 +1,4 @@
 services:
-
-  postgres:
-   image: postgres:latest
-   ports:
-     - 5432:5432
-   volumes:
-     - data-volume:/apps/postgres/var/lib/postgresql/data
-   environment:
-      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
-      POSTGRES_USER: '${POSTGRES_USER}'
-      POSTGRES_DB: '${POSTGRES_DB}'
           
   nodecontroller:
     image: log430/nodecontroller:latest
@@ -28,14 +17,40 @@ services:
       SERVICES_ADDRESS: '${SERVICES_ADDRESS}'
       NODE_CONTROLLER_PORT: '${NODE_CONTROLLER_PORT}'
       MQ_SERVICE_NAME: EventStream
-      CUSTOM_CONTAINER_PORTS_DISCOVERY: 5672,5432,80
+      CUSTOM_CONTAINER_PORTS_DISCOVERY: 5672,5432,80,6379
       BRIDGE_PORT: 32674
-      DEBUG: true
+      # DEBUG: true
       # Trace > Information > Error
       Logging__LogLevel__Default: Trace
       CONNECT_TO_INGRESS: true
     volumes: 
       - /var/run/docker.sock:/var/run/docker.sock
+      
+  postgres:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    volumes:
+      - data-volume:/apps/postgres/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRES_USER: '${POSTGRES_USER}'
+      POSTGRES_DB: '${POSTGRES_DB}'
+      ID: BD
+    labels:
+      Artifact_Category: Database
+      
+  redis:
+    image: redis:latest  # Image officielle de Redis
+    container_name: redis-server
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data  # Persister les données de Redis dans un volume
+    environment:
+      ID: BD    
+    labels:
+      Artifact_Category: Database
 
   event-store:
     container_name: EventStream
@@ -72,7 +87,7 @@ services:
       - '32772:8080'
     labels:
       ARTIFACT_CATEGORY: Computation
-      Replicas: EventStream, EventStream2, EventStream3
+      Replicas: 3
 
   tripcomparator:
     container_name: TripComparator
@@ -118,6 +133,28 @@ services:
 
     depends_on:
       - postgres
+  
+  redondancymanager:
+    container_name: RedondancyManager
+    image: redondancymanager
+    restart: always
+    build:
+      context: ../RedondancyManager
+      dockerfile: /RedondancyManager/Dockerfile
+    environment:
+      SERVICES_ADDRESS: '${SERVICES_ADDRESS}'
+      NODE_CONTROLLER_PORT: '${NODE_CONTROLLER_PORT}'
+      ID: RedondancyManager
+    ports:
+      - '6000:80'
+    labels:
+      ARTIFACT_CATEGORY: Computation
+    #volumes:
+    #  - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - tripcomparator
+      - stm
     
 volumes:
   data-volume:
+  redis_data:

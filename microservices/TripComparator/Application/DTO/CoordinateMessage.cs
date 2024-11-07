@@ -6,7 +6,7 @@ namespace MqContracts;
 
 public class CoordinateMessage
 {
-    public string StartingCoordinates { get; set; }
+    public string? StartingCoordinates { get; set; }
 
-    public string DestinationCoordinates { get; set; }
+    public string? DestinationCoordinates { get; set; }
 }

@@ -144,6 +144,7 @@ public class Program
     private static void PresentationSetup(IServiceCollection services)
     {
         services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(FinderController).Assembly));
+        services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(LoadBalancingController).Assembly));
 
         services.AddHostedService<BusUpdateJob>();
         services.AddHostedService<UpdateTripsJob>();

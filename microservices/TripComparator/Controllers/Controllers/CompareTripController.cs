@@ -3,6 +3,7 @@ using Application.Usecases;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Swashbuckle.AspNetCore.Annotations;
+using StackExchange.Redis;
 
 namespace Controllers.Controllers
 {
@@ -41,6 +42,18 @@ namespace Controllers.Controllers
             _ = _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.PollTrackingUpdate(producer!.Writer));
 
             _ = _backOffRetryPolicy.ExecuteAsync(async () => await _compareTimes.WriteToStream(producer.Reader));
+
+            var redis = ConnectionMultiplexer.Connect("redis:6379");
+            var db = redis.GetDatabase();
+
+            string key = "coordonnees";
+
+            // Écrire des données dans Redis
+            db.StringSet(key, $"Starting Coordinates: {startingCoordinates}, Destination Coordinates: {destinationCoordinates}");
+
+            string value = db.StringGet(key);
+
+            _logger.LogInformation($"Les coordonnees: {value}");
 
             return Ok();
 

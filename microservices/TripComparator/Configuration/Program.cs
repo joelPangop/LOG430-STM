@@ -15,6 +15,7 @@ using ServiceMeshHelper;
 using ServiceMeshHelper.BusinessObjects;
 using ServiceMeshHelper.BusinessObjects.InterServiceRequests;
 using ServiceMeshHelper.Controllers;
+using StackExchange.Redis;
 using static MassTransit.ValidationResultExtensions;
 
 namespace Configuration
@@ -24,9 +25,9 @@ namespace Configuration
         public static async Task Main(string[] args)
         {
 
-            //Thread.Sleep(20000);
-     //       Thread thread = new Thread(new ThreadStart(PingLoop));
-       //     thread.Start();
+            //Thread.Sleep(30000);
+            Thread thread = new Thread(new ThreadStart(PingLoop));
+            thread.Start();
 
             var builder = WebApplication.CreateBuilder(args as string[]);
 
@@ -53,6 +54,19 @@ namespace Configuration
 
             app.MapControllers();
 
+            var redis = ConnectionMultiplexer.Connect("redis:6379"); // Remplace "localhost" par l'adresse de ton serveur Redis
+            var db = redis.GetDatabase();
+
+            string key = "donnees";
+
+            // Écrire des données dans Redis
+            db.StringSet(key, "Ceci est un exemple de données stockées dans Redis.");
+            Console.WriteLine("Données stockées dans Redis.");
+
+            // Lire les données de Redis
+            string value = db.StringGet(key);
+            Console.WriteLine($"Contenu de Redis : {value}");
+
             await app.RunAsync();
 
         }
@@ -67,6 +81,14 @@ namespace Configuration
 
         private static void ConfigureServices(IServiceCollection services)
         {
+            DetectLeader(services);
+            //Thread.Sleep(10000);
+
+            if (DBUtils.IsLeader)
+            {
+                Console.WriteLine("Je ne suis pas leader et je configure RabbitMQ"); 
+            }
+            else Console.WriteLine("Je ne suis pas leader donc je ne configure pas RabbitMQ");
             ConfigureMassTransit(services);
 
             services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(CompareTripController).Assembly));
@@ -129,11 +151,19 @@ namespace Configuration
                             binding.ExchangeType = ExchangeType.Topic;
                             binding.RoutingKey = "trip_comparison.query";
                         });
-
+                        Console.WriteLine("Appel de la fonction ConfigureConsumer");
                         endpoint.ConfigureConsumer<TripComparatorMqController>(context);
                     });
 
-                    cfg.Publish<BusPositionUpdated>(p => p.ExchangeType = ExchangeType.Topic);
+                    if (DBUtils.IsLeader)
+                    {
+                        Console.WriteLine("Je suis le leader");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Je ne suis pas le leader");
+                    }
+                        cfg.Publish<BusPositionUpdated>(p => p.ExchangeType = ExchangeType.Topic);
                 });
             });
         }
@@ -148,8 +178,19 @@ namespace Configuration
             });
 
             var restResponse = await res!.ReadAsync();
-
+            if (restResponse?.Content == null)
+            {
+                return null;
+            }
+            Console.WriteLine($"Is alive? : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
             return JsonConvert.DeserializeObject<string?>(restResponse.Content);
+        }
+
+        public static void DetectLeader(IServiceCollection services)
+        {
+            services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(LoadBalancingController).Assembly)); ;
+
+            //callback?.Invoke();
         }
     }
 }

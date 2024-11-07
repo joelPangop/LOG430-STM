@@ -10,6 +10,7 @@ using ServiceMeshHelper;
 using ServiceMeshHelper.BusinessObjects;
 using ServiceMeshHelper.BusinessObjects.InterServiceRequests;
 using ServiceMeshHelper.Controllers;
+using Controllers.Controllers;
 
 namespace Infrastructure.Clients;
 
@@ -78,6 +79,14 @@ public class StmClient : IBusInfoProvider
                 Payload = stmBus,
                 Mode = LoadBalancingMode.RoundRobin
             });
+
+            string key = "request STM";
+
+            var db = DBUtils.Db.StringSet(key, "Track/BeginTracking");
+
+            string value = DBUtils.Db.StringGet(key);
+
+            _logger.LogInformation($"Request: {value}");
         });
     }
 
@@ -105,6 +114,14 @@ public class StmClient : IBusInfoProvider
             if (data is null || !data.IsSuccessStatusCode || data.StatusCode.Equals(HttpStatusCode.NoContent)) return null;
 
             var busTracking = JsonConvert.DeserializeObject<BusTracking>(data.Content!);
+            string key = "request STM";
+
+            var db = DBUtils.Db.StringSet(key, "Track/GetTrackingUpdate");
+
+            string value = DBUtils.Db.StringGet(key);
+
+            _logger.LogInformation($"Request: {value}");
+
 
             return busTracking;
 

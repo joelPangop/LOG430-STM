@@ -2,6 +2,7 @@ using Application.Usecases;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using StackExchange.Redis;
 
 namespace RouteTimeProvider.Controllers
 {
@@ -27,6 +28,17 @@ namespace RouteTimeProvider.Controllers
             _logger.LogInformation($"Fetching car travel time from {startingCoordinates} to {destinationCoordinates}");
 
             var travelTime = await _carTravel.GetTravelTimeInSeconds(startingCoordinates, destinationCoordinates);
+            var redis = ConnectionMultiplexer.Connect("redis:6379"); // Remplace "localhost" par l'adresse de ton serveur Redis
+            var db = redis.GetDatabase();
+
+            string key = "Coordonnees voiture";
+
+            // Écrire des données dans Redis
+            db?.StringSet(key, $"Starting Coordinates: {startingCoordinates}, Destination Coordinates: {destinationCoordinates}");
+
+            string value = db.StringGet(key);
+
+            _logger.LogInformation($"Les coordonnees de la voiture: {value}");
 
             return Ok(travelTime);
         }
