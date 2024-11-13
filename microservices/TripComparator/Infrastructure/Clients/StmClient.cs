@@ -141,22 +141,6 @@ public class StmClient : IBusInfoProvider
 
             var busTracking = JsonConvert.DeserializeObject<BusTracking>(data.Content!);
 
-            //var busTrackingList = JsonConvert.DeserializeObject<List<BusTracking>>(data.Content!);
-            //if (busTrackingList != null)
-            //{
-            //    // Trier la liste par la propriété 'Created'
-            //    var sortedBusTrackingList = busTrackingList.OrderBy(b => b.Created).ToList();
-
-            //    // Maintenant, tu peux utiliser sortedBusTrackingList comme tu le souhaites
-            //    foreach (var busTrack in sortedBusTrackingList)
-            //    {
-            //        Console.WriteLine($"Message: {busTrack.Message}, Created: {busTrack.Created}");
-            //    }
-            //}
-
-            //_logger.LogInformation($"busTracking: {data.Content!}");
-            //_logger.LogInformation($"busTracking: {busTracking}");
-
             return busTracking;
 
         });

@@ -150,6 +150,7 @@ services:
       - '6000:80'
     labels:
       ARTIFACT_CATEGORY: Computation
+      Replicas: 1
     #volumes:
     #  - /var/run/docker.sock:/var/run/docker.sock
     depends_on:

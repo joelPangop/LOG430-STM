@@ -1,5 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Application.DTO;
+using Application.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using System.Reflection.Metadata;
 
 namespace Controllers.Controllers
 {
@@ -8,9 +12,12 @@ namespace Controllers.Controllers
     public class LoadBalancingController : ControllerBase
     {
         private readonly ILogger<LoadBalancingController> _logger;
-        public LoadBalancingController(ILogger<LoadBalancingController> logger)
+        private readonly IBusInfoProvider _iBusInfoProvider;
+
+        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider)
         {
             this._logger = logger;
+            this._iBusInfoProvider = _iBusInfoProvider;
         }
 
         [HttpGet]
@@ -30,6 +37,41 @@ namespace Controllers.Controllers
             _logger.LogInformation("Service is alive");
 
             return Ok("IsAlive");
+        }
+
+        [HttpGet]
+        [ActionName("optimalBuses")]
+        public async Task<ActionResult<string>> OptimalBuses(string fromLatitudeLongitude, string toLatitudeLongitude)
+        {
+            _logger.LogInformation($"Reexecution de optimalBuses avec les parametres fromLatitudeLongitude: {fromLatitudeLongitude} et toLatitudeLongitude: {toLatitudeLongitude}");
+
+            await _iBusInfoProvider.GetBestBus(fromLatitudeLongitude, toLatitudeLongitude);
+
+            return Ok("OptimalBuses reexecute");
+        }
+
+        [HttpGet]
+        [ActionName("beginTracking")]
+        public async Task<ActionResult<string>> BeginTracking(string parametres)
+        {
+            _logger.LogInformation($"Reexecution de beginTracking avec les parametres: {parametres}");
+
+            RideDto? stmBus = JsonConvert.DeserializeObject<RideDto>(parametres);
+
+            await _iBusInfoProvider.BeginTracking(stmBus);
+
+            return Ok("BeginTracking reexecute");
+        }
+
+        [HttpGet]
+        [ActionName("getTrackingUpdate")]
+        public async Task<ActionResult<string>> GetTrackingUpdate()
+        {
+            _logger.LogInformation($"Reexecution de getTrackingUpdate");
+
+            await _iBusInfoProvider.GetTrackingUpdate();
+
+            return Ok("GetTrackingUpdate reexecute");
         }
     }
 }

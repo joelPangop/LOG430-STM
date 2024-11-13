@@ -92,7 +92,7 @@ namespace Configuration
             ConfigureMassTransit(services);
 
             services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(CompareTripController).Assembly));
-            services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(ReconnectionController).Assembly));
+            //services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(ReconnectionController).Assembly));
 
             services.AddEndpointsApiExplorer();
 
@@ -125,7 +125,7 @@ namespace Configuration
             
             var routingData = RestController.GetAddress(hostInfo.GetMQServiceName(), LoadBalancingMode.RoundRobin).Result.First();
 
-            var uniqueQueueName = $"time_comparison.node_controller-to-any.query.{Guid.NewGuid()}";
+            string uniqueQueueName = $"time_comparison.node_controller-to-any.query.{Guid.NewGuid()}";
 
             services.AddMassTransit(x =>
             {

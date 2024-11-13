@@ -11,11 +11,13 @@ using ServiceMeshHelper.Controllers;
 using StackExchange.Redis;
 using System;
 using System.Threading.Channels;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using RoutingData = RedondancyManager.RoutingData;
 
 class Program
 {
-        private static readonly HttpClient client = new HttpClient();
+    private static readonly HttpClient client = new HttpClient();
+    private static RoutingData routeData = new RoutingData();
+
     static async Task Main(string[] args)
     {
         //Thread.Sleep(5000);
@@ -38,7 +40,10 @@ class Program
             try
             {
                 var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
-                var endpoint = $"http://{routingData.Host}:{routingData.Port}/LoadBalancing/leader";
+                routeData.Host = routingData.Host;
+                routeData.Port = routingData.Port;
+
+                var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/leader";
 
                 Console.WriteLine($"endpoint: {endpoint}");
 
@@ -54,7 +59,7 @@ class Program
                 {
                     return null;
                 }
-                Console.WriteLine($"{containerName} Leader ? : {routingData.Host}:{routingData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+                Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
 
                 // Lancer le PingLoop pour vérifier la disponibilité continue
                 string pingEndPoint = $"http://{routingData.Host}:{routingData.Port}/LoadBalancing/alive";
@@ -173,19 +178,20 @@ class Program
 
         if (valueRequest != null)
         {
+            Console.WriteLine($"Le service: {valueService}");
             Console.WriteLine($"La Requete: {valueRequest}");
             //if(valueService.Equals("Consume") && valueCoordonnees != null)
             //{
             //   await Consume(valueCoordonnees, containerName);
             //} else 
-            if(valueService.Equals("OptimalBuses"))
+            if(valueRequest.Equals("Finder/OptimalBuses"))
             {
                 await OptimalBuses(valueCoordonnees, containerName);
             }
-            else if(valueService.Equals("BeginTracking"))
+            else if(valueRequest.Equals("Track/BeginTracking"))
             {
                 await BeginTracking(valueRide, containerName);
-            } else if(valueService.Equals("GetTrackingUpdate"))
+            } else if(valueRequest.Equals("Track/GetTrackingUpdate"))
             {
                 await GetTrackingUpdate(containerName);
             }
@@ -240,8 +246,8 @@ class Program
 
     private static async Task<string?> OptimalBuses(string valueCoordonnees, string containerName)
     {
-        var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
-        var endpoint = $"http://{routingData.Host}:{routingData.Port}/Reconnection/optimalBuses";
+        //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
+        var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/optimalBuses";
         var busCoordinates = JsonConvert.DeserializeObject<Coordinates>(valueCoordonnees);
 
         var res = await RestController.Get(new GetRoutingRequest()
@@ -269,14 +275,14 @@ class Program
         {
             return null;
         }
-        Console.WriteLine($"{containerName} Leader ? : {routingData.Host}:{routingData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+        Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
         return restResponse?.Content;
     }
 
     private static async Task<string?> BeginTracking(string valueCoordonnees, string containerName)
     {
-        var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
-        var endpoint = $"http://{routingData.Host}:{routingData.Port}/Reconnection/beginTracking";
+        //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
+        var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/beginTracking";
 
         var res = await RestController.Get(new GetRoutingRequest()
         {
@@ -298,14 +304,14 @@ class Program
         {
             return null;
         }
-        Console.WriteLine($"{containerName} Leader ? : {routingData.Host}:{routingData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+        Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
         return restResponse?.Content;
     }
 
     private static async Task<string?> GetTrackingUpdate(string containerName)
     {
-        var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
-        var endpoint = $"http://{routingData.Host}:{routingData.Port}/Reconnection/getTrackingUpdate";
+        //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
+        var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/getTrackingUpdate";
 
         var res = await RestController.Get(new GetRoutingRequest()
         {
@@ -319,7 +325,7 @@ class Program
         {
             return null;
         }
-        Console.WriteLine($"{containerName} Leader ? : {routingData.Host}:{routingData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+        Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
         return restResponse?.Content;
     }
 }
