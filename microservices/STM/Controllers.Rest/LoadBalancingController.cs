@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Controllers.Controllers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -20,11 +21,21 @@ namespace Controllers.Rest
 
         [HttpGet]
         [ActionName("leader")]
-        public async Task<ActionResult<string>> GetAlive()
+        public async Task<ActionResult<string>> GetLeader()
         {
             _logger.LogInformation("I am the leader");
-
+            DBUtils.IsLeader = true;
+            _logger.LogInformation($"[GetAlive] Leader ? {DBUtils.IsLeader}");
             return Ok("1");
+        }
+
+        [HttpGet]
+        [ActionName("alive")]
+        public async Task<ActionResult<string>> GetAlive()
+        {
+            _logger.LogInformation("Service is alive");
+
+            return Ok("IsAlive");
         }
     }
 }

@@ -92,6 +92,7 @@ namespace Configuration
             ConfigureMassTransit(services);
 
             services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(CompareTripController).Assembly));
+            services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(ReconnectionController).Assembly));
 
             services.AddEndpointsApiExplorer();
 

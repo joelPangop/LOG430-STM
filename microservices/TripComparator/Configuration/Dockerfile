@@ -5,6 +5,8 @@ USER app
 WORKDIR /app
 EXPOSE 8080
 
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD curl -f http://localhost:8080/LoadBalancing/leader || exit 1
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src

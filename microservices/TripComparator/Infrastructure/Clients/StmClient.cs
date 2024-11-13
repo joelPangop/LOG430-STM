@@ -29,6 +29,24 @@ public class StmClient : IBusInfoProvider
 
     public Task<RideDto> GetBestBus(string startingCoordinates, string destinationCoordinates)
     {
+        string keyRequest = "Request";
+        string keyService = "Service";
+        string keyCoordonnees = "Coordonnees";
+
+        var data = new Dictionary<string, string>
+        {
+            { "StartingCoordinates", startingCoordinates },
+            { "DestinationCoordinates", destinationCoordinates }
+        };
+
+        //Sérialiser en JSON
+        string json = JsonConvert.SerializeObject(data);
+
+        Console.WriteLine($"JSON créé : {json}");
+        DBUtils.Db.StringSet(keyRequest, "Finder/OptimalBuses");
+        DBUtils.Db.StringSet(keyService, "TripComparator");
+        //DBUtils.Db.StringSetAsync(keyCoordonnees, json);
+
         return _infiniteRetry.ExecuteAsync(async () =>
         {
             var channel = await RestController.Get(new GetRoutingRequest()
@@ -70,6 +88,16 @@ public class StmClient : IBusInfoProvider
 
     public Task BeginTracking(RideDto stmBus)
     {
+        string keyRequest = "Request";
+        string keyService = "Service";
+        string keyRide = "stmBus";
+
+        string json = JsonConvert.SerializeObject(stmBus);
+
+        DBUtils.Db.StringSet(keyRequest, "Track/BeginTracking");
+        DBUtils.Db.StringSet(keyService, "TripComparator");
+        DBUtils.Db.StringSetAsync(keyRide, json);
+
         return _infiniteRetry.ExecuteAsync(async () =>
         {
             _ = await RestController.Post(new PostRoutingRequest<RideDto>()
@@ -79,19 +107,17 @@ public class StmClient : IBusInfoProvider
                 Payload = stmBus,
                 Mode = LoadBalancingMode.RoundRobin
             });
-
-            string key = "request STM";
-
-            var db = DBUtils.Db.StringSet(key, "Track/BeginTracking");
-
-            string value = DBUtils.Db.StringGet(key);
-
-            _logger.LogInformation($"Request: {value}");
         });
     }
 
     public Task<IBusTracking?> GetTrackingUpdate()
     {
+        string keyRequest = "Request";
+        string keyService = "Service";
+
+        DBUtils.Db.StringSet(keyRequest, "Track/GetTrackingUpdate");
+        DBUtils.Db.StringSet(keyService, "TripComparator");
+
         return _infiniteRetry.ExecuteAsync<IBusTracking?>(async () =>
         {
             var channel = await RestController.Get(new GetRoutingRequest()
@@ -114,14 +140,22 @@ public class StmClient : IBusInfoProvider
             if (data is null || !data.IsSuccessStatusCode || data.StatusCode.Equals(HttpStatusCode.NoContent)) return null;
 
             var busTracking = JsonConvert.DeserializeObject<BusTracking>(data.Content!);
-            string key = "request STM";
 
-            var db = DBUtils.Db.StringSet(key, "Track/GetTrackingUpdate");
+            //var busTrackingList = JsonConvert.DeserializeObject<List<BusTracking>>(data.Content!);
+            //if (busTrackingList != null)
+            //{
+            //    // Trier la liste par la propriété 'Created'
+            //    var sortedBusTrackingList = busTrackingList.OrderBy(b => b.Created).ToList();
 
-            string value = DBUtils.Db.StringGet(key);
+            //    // Maintenant, tu peux utiliser sortedBusTrackingList comme tu le souhaites
+            //    foreach (var busTrack in sortedBusTrackingList)
+            //    {
+            //        Console.WriteLine($"Message: {busTrack.Message}, Created: {busTrack.Created}");
+            //    }
+            //}
 
-            _logger.LogInformation($"Request: {value}");
-
+            //_logger.LogInformation($"busTracking: {data.Content!}");
+            //_logger.LogInformation($"busTracking: {busTracking}");
 
             return busTracking;
 
