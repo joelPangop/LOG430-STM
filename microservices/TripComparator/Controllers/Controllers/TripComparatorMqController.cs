@@ -68,5 +68,25 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
 
             string RemoveWhiteSpaces(string s) => s.Replace(" ", "");
         }
+
+    }
+
+    public async Task NewConsume()
+    {
+        string? keyCoordonnees = "Coordonnees";
+        string? valueCoordonnees = DBUtils.Db.StringGet(keyCoordonnees);
+
+        var busCoordinates = JsonConvert.DeserializeObject<CoordinateMessage>(valueCoordonnees);
+        _logger.LogInformation($"Comparing trip duration from {busCoordinates.StartingCoordinates} to {_destinationCoordinates}");
+
+        var producer = await _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.BeginComparingBusAndCarTime(
+            RemoveWhiteSpaces(busCoordinates.StartingCoordinates),
+            RemoveWhiteSpaces(busCoordinates.DestinationCoordinates)));
+
+        _ = _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.PollTrackingUpdate(producer!.Writer));
+
+        _ = _backOffRetryPolicy.ExecuteAsync(async () => await _compareTimes.WriteToStream(producer.Reader));
+
+        string RemoveWhiteSpaces(string s) => s.Replace(" ", "");
     }
 }

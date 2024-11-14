@@ -1,5 +1,6 @@
 ﻿using Application.Interfaces;
 using Application.Interfaces.Policies;
+using Controllers.Controllers;
 using MassTransit.Internals.GraphValidation;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -25,6 +26,30 @@ public class RouteTimeProviderClient : IRouteTimeProvider
 
     public Task<int> GetTravelTimeInSeconds(string startingCoordinates, string destinationCoordinates)
     {
+        string keyRequest = "Request";
+        string keyService = "Service";
+        string keyCoordonnees = "Coordonnees";
+
+        var data = new Dictionary<string, string>
+        {
+            { "StartingCoordinates", startingCoordinates },
+            { "DestinationCoordinates", destinationCoordinates }
+        };
+
+        //Sérialiser en JSON
+        string json = JsonConvert.SerializeObject(data);
+
+        Console.WriteLine($"JSON créé : {json}");
+        DBUtils.Db.StringSet(keyRequest, "RouteTime/Get");
+        DBUtils.Db.StringSet(keyService, "TripComparator");
+        //DBUtils.Db.StringSetAsync(keyCoordonnees, json);
+
+        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/RouteTime/Get";
+        if (string.IsNullOrEmpty(endPoint))
+        {
+            endPoint = "RouteTime/Get";
+        }
+        Console.WriteLine($"Nouveau endpoint: {endPoint}");
         return _infiniteRetry.ExecuteAsync(async () =>
         {
             var res = await RestController.Get(new GetRoutingRequest()

@@ -60,6 +60,14 @@ class Program
                     return null;
                 }
                 Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+                var redis = ConnectionMultiplexer.Connect("redis:6379"); // Remplace "localhost" par l'adresse de ton serveur Redis
+                var db = redis.GetDatabase();
+
+                if (containerName == "STM")
+                {
+                    string? key = "STM Leader";
+                    db.StringSet(key, $"http://{routeData.Host}:{routeData.Port}");
+                }
 
                 // Lancer le PingLoop pour vérifier la disponibilité continue
                 string pingEndPoint = $"http://{routingData.Host}:{routingData.Port}/LoadBalancing/alive";
@@ -97,7 +105,7 @@ class Program
         {
             while (await PingEcho(containerName, endpoint) == "IsAlive")
             {
-                await Task.Delay(1000); // Optionnel : Ajouter un délai pour éviter les appels excessifs
+                await Task.Delay(100); // Optionnel : Ajouter un délai pour éviter les appels excessifs
             }
             Console.WriteLine($"{endpoint} est mort");
             Console.WriteLine("Reexecuter les requetes en cours");
@@ -184,14 +192,19 @@ class Program
             //{
             //   await Consume(valueCoordonnees, containerName);
             //} else 
-            if(valueRequest.Equals("Finder/OptimalBuses"))
+            if (valueRequest.Equals("Finder/OptimalBuses"))
             {
                 await OptimalBuses(valueCoordonnees, containerName);
             }
-            else if(valueRequest.Equals("Track/BeginTracking"))
+            else if (valueRequest.Equals("Track/BeginTracking"))
             {
                 await BeginTracking(valueRide, containerName);
-            } else if(valueRequest.Equals("Track/GetTrackingUpdate"))
+            }
+            else if (valueRequest.Equals("RouteTime/Get"))
+            {
+
+            }
+            else if (valueRequest.Equals("Track/GetTrackingUpdate"))
             {
                 await GetTrackingUpdate(containerName);
             }
@@ -328,4 +341,39 @@ class Program
         Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
         return restResponse?.Content;
     }
+
+    //public async Task<string?> GetTravelTimeInSeconds(string valueCoordonnees, string containerName)
+    //{
+        ////var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
+        //var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/optimalBuses";
+        //var busCoordinates = JsonConvert.DeserializeObject<Coordinates>(valueCoordonnees);
+
+        //var res = await RestController.Get(new GetRoutingRequest()
+        //{
+        //    TargetService = containerName,
+        //    Endpoint = endpoint,
+        //    Params = new List<NameValue>()
+        //        {
+        //            new()
+        //            {
+        //                Name = "fromLatitudeLongitude",
+        //                Value = busCoordinates.StartingCoordinates
+        //            },
+        //            new()
+        //            {
+        //                Name = "toLatitudeLongitude",
+        //                Value = busCoordinates.DestinationCoordinates
+        //            },
+        //        },
+        //    Mode = LoadBalancingMode.RoundRobin
+        //});
+
+        //var restResponse = await res!.ReadAsync();
+        //if (restResponse?.Content == null)
+        //{
+        //    return null;
+        //}
+        //Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+        //return restResponse?.Content;
+    //}
 }

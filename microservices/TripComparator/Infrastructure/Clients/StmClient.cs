@@ -47,12 +47,19 @@ public class StmClient : IBusInfoProvider
         DBUtils.Db.StringSet(keyService, "TripComparator");
         //DBUtils.Db.StringSetAsync(keyCoordonnees, json);
 
+        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Finder/OptimalBuses";
+        if (string.IsNullOrEmpty(endPoint))
+        {
+            endPoint = "Finder/OptimalBuses";
+        }
+        Console.WriteLine($"Nouveau endpoint: {endPoint}");
+
         return _infiniteRetry.ExecuteAsync(async () =>
         {
             var channel = await RestController.Get(new GetRoutingRequest()
             {
                 TargetService = "STM",
-                Endpoint = $"Finder/OptimalBuses",
+                Endpoint = "Finder/OptimalBuses",
                 Params = new List<NameValue>()
                 {
                     new()
@@ -98,12 +105,19 @@ public class StmClient : IBusInfoProvider
         DBUtils.Db.StringSet(keyService, "TripComparator");
         DBUtils.Db.StringSetAsync(keyRide, json);
 
+        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Track/BeginTracking";
+        if (string.IsNullOrEmpty(endPoint))
+        {
+            endPoint = "Track/BeginTracking";
+        }
+        Console.WriteLine($"Nouveau endpoint: {endPoint}");
+
         return _infiniteRetry.ExecuteAsync(async () =>
         {
             _ = await RestController.Post(new PostRoutingRequest<RideDto>()
             {
                 TargetService = "STM",
-                Endpoint = $"Track/BeginTracking",
+                Endpoint = "Track/BeginTracking",
                 Payload = stmBus,
                 Mode = LoadBalancingMode.RoundRobin
             });
@@ -118,12 +132,19 @@ public class StmClient : IBusInfoProvider
         DBUtils.Db.StringSet(keyRequest, "Track/GetTrackingUpdate");
         DBUtils.Db.StringSet(keyService, "TripComparator");
 
+        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Track/GetTrackingUpdate";
+        if (string.IsNullOrEmpty(endPoint))
+        {
+            endPoint = "Track/GetTrackingUpdate";
+        }
+
+        Console.WriteLine($"Nouveau endpoint: {endPoint}");
         return _infiniteRetry.ExecuteAsync<IBusTracking?>(async () =>
         {
             var channel = await RestController.Get(new GetRoutingRequest()
             {
                 TargetService = "STM",
-                Endpoint = $"Track/GetTrackingUpdate",
+                Endpoint = "Track/GetTrackingUpdate",
                 Params = new List<NameValue>(),
                 Mode = LoadBalancingMode.RoundRobin
             });
@@ -135,7 +156,7 @@ public class StmClient : IBusInfoProvider
                 data = res;
 
                 break;
-            }
+            } 
 
             if (data is null || !data.IsSuccessStatusCode || data.StatusCode.Equals(HttpStatusCode.NoContent)) return null;
 

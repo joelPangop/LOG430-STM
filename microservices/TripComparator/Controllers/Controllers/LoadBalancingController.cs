@@ -14,7 +14,7 @@ namespace Controllers.Controllers
         private readonly ILogger<LoadBalancingController> _logger;
         private readonly IBusInfoProvider _iBusInfoProvider;
 
-        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider)
+        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider, TripComparatorMqController tripComparatorMq)
         {
             this._logger = logger;
             this._iBusInfoProvider = _iBusInfoProvider;
@@ -45,7 +45,9 @@ namespace Controllers.Controllers
         {
             _logger.LogInformation($"Reexecution de optimalBuses avec les parametres fromLatitudeLongitude: {fromLatitudeLongitude} et toLatitudeLongitude: {toLatitudeLongitude}");
 
+            DBUtils.Db.StringSet("restart", "1");
             await _iBusInfoProvider.GetBestBus(fromLatitudeLongitude, toLatitudeLongitude);
+            //await tripComparatorMq.NewConsume();
 
             return Ok("OptimalBuses reexecute");
         }
@@ -56,9 +58,12 @@ namespace Controllers.Controllers
         {
             _logger.LogInformation($"Reexecution de beginTracking avec les parametres: {parametres}");
 
+            DBUtils.Db.StringSet("restart", "1");
+
             RideDto? stmBus = JsonConvert.DeserializeObject<RideDto>(parametres);
 
             await _iBusInfoProvider.BeginTracking(stmBus);
+            //await tripComparatorMq.NewConsume();
 
             return Ok("BeginTracking reexecute");
         }
@@ -68,9 +73,10 @@ namespace Controllers.Controllers
         public async Task<ActionResult<string>> GetTrackingUpdate()
         {
             _logger.LogInformation($"Reexecution de getTrackingUpdate");
+            DBUtils.Db.StringSet("restart", "1");
 
             await _iBusInfoProvider.GetTrackingUpdate();
-
+            //await tripComparatorMq.NewConsume();
             return Ok("GetTrackingUpdate reexecute");
         }
     }
