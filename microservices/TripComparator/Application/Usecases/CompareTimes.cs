@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using System.Diagnostics;
+using System.Threading.Channels;
 using Application.BusinessObjects;
 using Application.DTO;
 using Application.Interfaces;
@@ -58,10 +59,25 @@ namespace Application.Usecases
             if (_optimalBus is null) throw new Exception("bus data was null");
 
             var trackingOnGoing = true;
+            Stopwatch stopwatch = new Stopwatch();
 
             while (trackingOnGoing && await _periodicTimer.WaitForNextTickAsync())
             {
+                stopwatch.Restart();
+
                 var trackingResult = await _iBusInfoProvider.GetTrackingUpdate();
+
+                stopwatch.Stop();
+                int elapsedTime = (int)stopwatch.ElapsedMilliseconds;
+
+                // Ajuster l'intervalle si le temps est inférieur à 50ms
+                int adjustedDelay = 50; // L'intervalle cible est 50 ms
+                if (elapsedTime < adjustedDelay)
+                {
+                    // Calculez l'écart et doublez-le pour l'ajustement
+                    int difference = adjustedDelay - elapsedTime;
+                    adjustedDelay = adjustedDelay + (2 * difference);
+                }
 
                 if (trackingResult is null) continue;
 
@@ -74,6 +90,8 @@ namespace Application.Usecases
                 };
 
                 await channel.WriteAsync(busPosition);
+
+                await Task.Delay(adjustedDelay);
             }
 
             channel.Complete();

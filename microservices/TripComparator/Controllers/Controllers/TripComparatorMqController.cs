@@ -12,8 +12,8 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
     private readonly CompareTimes _compareTimes;
     private readonly IInfiniteRetryPolicy<TripComparatorMqController> _infiniteRetryPolicy;
     private readonly IBackOffRetryPolicy<TripComparatorMqController> _backOffRetryPolicy;
-    public string _startingCoordinates { get; set; } = string.Empty;
-    public string _destinationCoordinates { get; set; } = string.Empty;
+    public string? _startingCoordinates { get; set; } = string.Empty;
+    public string? _destinationCoordinates { get; set; } = string.Empty;
 
     private readonly ILogger<TripComparatorMqController> _logger;
 
@@ -33,28 +33,11 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
     {
         _logger.LogInformation("Execution de la fonction Consume");
         _logger.LogInformation($"Je suis le leader ? { DBUtils.IsLeader}");
-
-        if (DBUtils.IsLeader)
+		
+		bool isLeader = DBUtils.IsLeader;
+        if (isLeader)
         {
-            string startingCoordinates = string.IsNullOrEmpty(_startingCoordinates) ? context.Message.StartingCoordinates: _startingCoordinates, destinationCoordinates = string.IsNullOrEmpty(_destinationCoordinates) ? context.Message.DestinationCoordinates : _destinationCoordinates;
-
-            string key1 = "Request";
-            string keyCoordonnees = "Coordonnees";
-
-            var data = new Dictionary<string, string>
-            {
-                { "StartingCoordinates", startingCoordinates },
-                { "DestinationCoordinates", destinationCoordinates }
-            };
-
-            // Sérialiser en JSON
-            string json = JsonConvert.SerializeObject(data);
-
-            Console.WriteLine($"JSON créé : {json}");
-
-            // Écrire des données dans Redis
-            DBUtils.Db?.StringSetAsync(keyCoordonnees, json);
-            DBUtils.Db?.StringSet(key1, $"Consume");
+            string? startingCoordinates = string.IsNullOrEmpty(_startingCoordinates) ? context.Message.StartingCoordinates : _startingCoordinates, destinationCoordinates = string.IsNullOrEmpty(_destinationCoordinates) ? context.Message.DestinationCoordinates : _destinationCoordinates;
 
             _logger.LogInformation($"Comparing trip duration from {startingCoordinates} to {destinationCoordinates}");
        
@@ -77,7 +60,7 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
         string? valueCoordonnees = DBUtils.Db.StringGet(keyCoordonnees);
 
         var busCoordinates = JsonConvert.DeserializeObject<CoordinateMessage>(valueCoordonnees);
-        _logger.LogInformation($"Comparing trip duration from {busCoordinates.StartingCoordinates} to {_destinationCoordinates}");
+        _logger.LogInformation($"new Comparing trip duration from {busCoordinates.StartingCoordinates} to {_destinationCoordinates}");
 
         var producer = await _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.BeginComparingBusAndCarTime(
             RemoveWhiteSpaces(busCoordinates.StartingCoordinates),

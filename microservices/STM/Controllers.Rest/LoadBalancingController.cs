@@ -30,6 +30,17 @@ namespace Controllers.Rest
         }
 
         [HttpGet]
+        [ActionName("notleader")]
+        public async Task<ActionResult<string>> GetNotLeave()
+        {
+
+            _logger.LogInformation("I am still not the leader");
+            DBUtils.IsLeader = false;
+            _logger.LogInformation($"[GetAlive] Leader ? {DBUtils.IsLeader}");
+            return Ok("0");
+        }
+
+        [HttpGet]
         [ActionName("alive")]
         public async Task<ActionResult<string>> GetAlive()
         {

@@ -33,7 +33,7 @@ namespace RouteTimeProvider.Controllers
 
             string key = "Coordonnees voiture";
 
-            // Écrire des données dans Redis
+            // ï¿½crire des donnï¿½es dans Redis
             db?.StringSet(key, $"Starting Coordinates: {startingCoordinates}, Destination Coordinates: {destinationCoordinates}");
 
             string value = db.StringGet(key);

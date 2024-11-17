@@ -13,11 +13,15 @@ namespace Controllers.Controllers
     {
         private readonly ILogger<LoadBalancingController> _logger;
         private readonly IBusInfoProvider _iBusInfoProvider;
+        private readonly IRouteTimeProvider _routeTimeProvider;
+        private readonly TripComparatorMqController _tripComparatorMq;
 
-        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider, TripComparatorMqController tripComparatorMq)
+        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider, TripComparatorMqController tripComparatorMq, IRouteTimeProvider routeTimeProvider)
         {
             this._logger = logger;
             this._iBusInfoProvider = _iBusInfoProvider;
+            this._routeTimeProvider = routeTimeProvider;
+            this._tripComparatorMq = tripComparatorMq;
         }
 
         [HttpGet]
@@ -31,6 +35,17 @@ namespace Controllers.Controllers
         }
 
         [HttpGet]
+        [ActionName("notleader")]
+        public async Task<ActionResult<string>> GetNotLeave()
+        {
+            
+            _logger.LogInformation("I am still not the leader");
+            DBUtils.IsLeader = false;
+            _logger.LogInformation($"[GetAlive] Leader ? {DBUtils.IsLeader}");
+            return Ok("0");
+        }
+
+        [HttpGet]
         [ActionName("alive")]
         public async Task<ActionResult<string>> GetAlive()
         {
@@ -41,13 +56,13 @@ namespace Controllers.Controllers
 
         [HttpGet]
         [ActionName("optimalBuses")]
-        public async Task<ActionResult<string>> OptimalBuses(string fromLatitudeLongitude, string toLatitudeLongitude)
+        public async Task<ActionResult<string>> OptimalBuses(string fromLatitudeLongitude, string toLatitudeLongitude, string host, string port)
         {
-            _logger.LogInformation($"Reexecution de optimalBuses avec les parametres fromLatitudeLongitude: {fromLatitudeLongitude} et toLatitudeLongitude: {toLatitudeLongitude}");
+            _logger.LogInformation($"Reexecution de optimalBuses avec les parametres fromLatitudeLongitude: {fromLatitudeLongitude} et toLatitudeLongitude: {toLatitudeLongitude} au port {port} et au host {host}");
 
             DBUtils.Db.StringSet("restart", "1");
             await _iBusInfoProvider.GetBestBus(fromLatitudeLongitude, toLatitudeLongitude);
-            //await tripComparatorMq.NewConsume();
+            await _tripComparatorMq.NewConsume();
 
             return Ok("OptimalBuses reexecute");
         }
@@ -63,7 +78,7 @@ namespace Controllers.Controllers
             RideDto? stmBus = JsonConvert.DeserializeObject<RideDto>(parametres);
 
             await _iBusInfoProvider.BeginTracking(stmBus);
-            //await tripComparatorMq.NewConsume();
+            await _tripComparatorMq.NewConsume();
 
             return Ok("BeginTracking reexecute");
         }
@@ -76,8 +91,21 @@ namespace Controllers.Controllers
             DBUtils.Db.StringSet("restart", "1");
 
             await _iBusInfoProvider.GetTrackingUpdate();
-            //await tripComparatorMq.NewConsume();
+            await _tripComparatorMq.NewConsume();
             return Ok("GetTrackingUpdate reexecute");
+        }
+
+        [HttpGet]
+        [ActionName("routingget")]
+        public async Task<ActionResult<string>> RoutingGet(string fromLatitudeLongitude, string toLatitudeLongitude, string host, string port)
+        {
+            _logger.LogInformation($"Reexecution de optimalBuses avec les parametres fromLatitudeLongitude: {fromLatitudeLongitude} et toLatitudeLongitude: {toLatitudeLongitude} au port {port} et au host {host}");
+
+            DBUtils.Db.StringSet("restart", "1");
+            await _routeTimeProvider.GetTravelTimeInSeconds(fromLatitudeLongitude, toLatitudeLongitude);
+            await _tripComparatorMq.NewConsume();
+
+            return Ok("OptimalBuses reexecute");
         }
     }
 }

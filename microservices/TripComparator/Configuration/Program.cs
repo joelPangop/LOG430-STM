@@ -26,8 +26,8 @@ namespace Configuration
         {
 
             //Thread.Sleep(30000);
-            Thread thread = new Thread(new ThreadStart(PingLoop));
-            thread.Start();
+            // Thread thread = new Thread(new ThreadStart(PingLoop));
+            // thread.Start();
 
             var builder = WebApplication.CreateBuilder(args as string[]);
 
@@ -59,11 +59,11 @@ namespace Configuration
 
             string key = "donnees";
 
-            // Écrire des données dans Redis
-            db.StringSet(key, "Ceci est un exemple de données stockées dans Redis.");
-            Console.WriteLine("Données stockées dans Redis.");
+            // ï¿½crire des donnï¿½es dans Redis
+            db.StringSet(key, "Ceci est un exemple de donnï¿½es stockï¿½es dans Redis.");
+            Console.WriteLine("Donnï¿½es stockï¿½es dans Redis.");
 
-            // Lire les données de Redis
+            // Lire les donnï¿½es de Redis
             string value = db.StringGet(key);
             Console.WriteLine($"Contenu de Redis : {value}");
 

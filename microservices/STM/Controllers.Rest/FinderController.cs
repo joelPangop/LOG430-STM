@@ -4,6 +4,7 @@ using Application.ViewModels;
 using Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Controllers.Controllers;
 
 namespace Controllers.Rest;
 
@@ -39,10 +40,17 @@ public class FinderController : ControllerBase
         var from = new Position(fromLatitude, fromLongitude);
         var to = new Position(toLatitude, toLongitude);
 
-        var ride = await _queryDispatcher.Dispatch<GetEarliestBusQuery, RideViewModel>(new GetEarliestBusQuery(from, to), CancellationToken.None);
+        bool isLeader = DBUtils.IsLeader;
+        // if (isLeader)
+        // {
+            var ride = await _queryDispatcher.Dispatch<GetEarliestBusQuery, RideViewModel>(new GetEarliestBusQuery(from, to), CancellationToken.None);
 
-        return Ok(ride);
-
+            return Ok(ride);
+        // }
+        // else
+        // {
+        //     return Unauthorized("Unauthorized");
+        // }
         (double fromLatitude, double fromLongitude, double toLatitude, double toLongitude) ParseParams()
         {
             var fromPositionStrings = fromLatitudeLongitude.Split(',');

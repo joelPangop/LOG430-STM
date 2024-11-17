@@ -17,6 +17,7 @@ public class MassTransitRabbitMqClient : IDataStreamWriteModel
     {
         try
         {
+            Console.WriteLine("Producing...");
             await _publishEndpoint.Publish(new BusPositionUpdated()
             {
                 Message = busPositionUpdated.Message,

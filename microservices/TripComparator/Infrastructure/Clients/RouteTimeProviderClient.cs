@@ -28,34 +28,20 @@ public class RouteTimeProviderClient : IRouteTimeProvider
     {
         string keyRequest = "Request";
         string keyService = "Service";
-        string keyCoordonnees = "Coordonnees";
-
-        var data = new Dictionary<string, string>
-        {
-            { "StartingCoordinates", startingCoordinates },
-            { "DestinationCoordinates", destinationCoordinates }
-        };
-
-        //Sérialiser en JSON
-        string json = JsonConvert.SerializeObject(data);
-
-        Console.WriteLine($"JSON créé : {json}");
+        string startingCoordinatesKey = "startingCoordinates";
+        string destinationCoordinatesKey = "destinationCoordinates";
+        
         DBUtils.Db.StringSet(keyRequest, "RouteTime/Get");
         DBUtils.Db.StringSet(keyService, "TripComparator");
-        //DBUtils.Db.StringSetAsync(keyCoordonnees, json);
+        DBUtils.Db.StringSet(startingCoordinatesKey, startingCoordinates);
+        DBUtils.Db.StringSet(destinationCoordinatesKey, destinationCoordinates);
 
-        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/RouteTime/Get";
-        if (string.IsNullOrEmpty(endPoint))
-        {
-            endPoint = "RouteTime/Get";
-        }
-        Console.WriteLine($"Nouveau endpoint: {endPoint}");
         return _infiniteRetry.ExecuteAsync(async () =>
         {
             var res = await RestController.Get(new GetRoutingRequest()
             {
                 TargetService = "RouteTimeProvider",
-                Endpoint = $"RouteTime/Get",
+                Endpoint = "RouteTime/Get",
                 Params = new List<NameValue>()
                 {
                     new()
@@ -69,7 +55,7 @@ public class RouteTimeProviderClient : IRouteTimeProvider
                         Value = destinationCoordinates
                     },
                 },
-                Mode = LoadBalancingMode.Broadcast
+                Mode = LoadBalancingMode.RoundRobin
             });
 
             var times = new List<int>();

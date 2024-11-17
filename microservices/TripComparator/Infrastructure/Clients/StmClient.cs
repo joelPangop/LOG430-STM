@@ -31,26 +31,24 @@ public class StmClient : IBusInfoProvider
     {
         string keyRequest = "Request";
         string keyService = "Service";
-        string keyCoordonnees = "Coordonnees";
-
-        var data = new Dictionary<string, string>
-        {
-            { "StartingCoordinates", startingCoordinates },
-            { "DestinationCoordinates", destinationCoordinates }
-        };
-
-        //Sérialiser en JSON
-        string json = JsonConvert.SerializeObject(data);
-
-        Console.WriteLine($"JSON créé : {json}");
+        
         DBUtils.Db.StringSet(keyRequest, "Finder/OptimalBuses");
         DBUtils.Db.StringSet(keyService, "TripComparator");
         //DBUtils.Db.StringSetAsync(keyCoordonnees, json);
 
-        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Finder/OptimalBuses";
-        if (string.IsNullOrEmpty(endPoint))
+        string endPoint = "Finder/OptimalBuses";
+        if (DBUtils.Db.KeyExists("STM Leader"))
         {
-            endPoint = "Finder/OptimalBuses";
+            var value = DBUtils.Db.StringGet("STM Leader");
+            // Vérifier que la valeur n'est pas vide ou null
+            if (!string.IsNullOrEmpty(value))
+            {
+                endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Finder/OptimalBuses";
+            }
+            else
+            {
+                Console.WriteLine("La clé 'STM Leader' existe, mais elle n'a pas de valeur.");
+            }
         }
         Console.WriteLine($"Nouveau endpoint: {endPoint}");
 
@@ -59,7 +57,7 @@ public class StmClient : IBusInfoProvider
             var channel = await RestController.Get(new GetRoutingRequest()
             {
                 TargetService = "STM",
-                Endpoint = "Finder/OptimalBuses",
+                Endpoint = endPoint,
                 Params = new List<NameValue>()
                 {
                     new()
@@ -105,10 +103,19 @@ public class StmClient : IBusInfoProvider
         DBUtils.Db.StringSet(keyService, "TripComparator");
         DBUtils.Db.StringSetAsync(keyRide, json);
 
-        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Track/BeginTracking";
-        if (string.IsNullOrEmpty(endPoint))
+        string endPoint = "Track/BeginTracking";
+        if (DBUtils.Db.KeyExists("STM Leader"))
         {
-            endPoint = "Track/BeginTracking";
+            var value = DBUtils.Db.StringGet("STM Leader");
+            // Vérifier que la valeur n'est pas vide ou null
+            if (!string.IsNullOrEmpty(value))
+            {
+                endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Track/BeginTracking";
+            }
+        }
+        else
+        {
+            Console.WriteLine("La clé 'STM Leader' existe, mais elle n'a pas de valeur.");
         }
         Console.WriteLine($"Nouveau endpoint: {endPoint}");
 
@@ -117,7 +124,7 @@ public class StmClient : IBusInfoProvider
             _ = await RestController.Post(new PostRoutingRequest<RideDto>()
             {
                 TargetService = "STM",
-                Endpoint = "Track/BeginTracking",
+                Endpoint = endPoint,
                 Payload = stmBus,
                 Mode = LoadBalancingMode.RoundRobin
             });
@@ -132,10 +139,19 @@ public class StmClient : IBusInfoProvider
         DBUtils.Db.StringSet(keyRequest, "Track/GetTrackingUpdate");
         DBUtils.Db.StringSet(keyService, "TripComparator");
 
-        string endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Track/GetTrackingUpdate";
-        if (string.IsNullOrEmpty(endPoint))
+        string endPoint = "Track/GetTrackingUpdate";
+        if (DBUtils.Db.KeyExists("STM Leader"))
         {
-            endPoint = "Track/GetTrackingUpdate";
+            var value = DBUtils.Db.StringGet("STM Leader");
+            // Vérifier que la valeur n'est pas vide ou null
+            if (!string.IsNullOrEmpty(value))
+            {
+                endPoint = $"{DBUtils.Db.StringGet("STM Leader")}/Track/GetTrackingUpdate";
+            }
+        }
+        else
+        {
+            Console.WriteLine("La clé 'STM Leader' existe, mais elle n'a pas de valeur.");
         }
 
         Console.WriteLine($"Nouveau endpoint: {endPoint}");
@@ -144,7 +160,7 @@ public class StmClient : IBusInfoProvider
             var channel = await RestController.Get(new GetRoutingRequest()
             {
                 TargetService = "STM",
-                Endpoint = "Track/GetTrackingUpdate",
+                Endpoint = endPoint,
                 Params = new List<NameValue>(),
                 Mode = LoadBalancingMode.RoundRobin
             });

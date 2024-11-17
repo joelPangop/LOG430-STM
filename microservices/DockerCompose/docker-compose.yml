@@ -39,6 +39,8 @@ services:
       ID: BD
     labels:
       Artifact_Category: Database
+    #networks:
+     # - my_network
       
   redis:
     image: redis:latest  # Image officielle de Redis
@@ -156,6 +158,10 @@ services:
     depends_on:
       - tripcomparator
       - stm
+      
+#networks:
+ # my_network:
+  #  driver: bridge
     
 volumes:
   data-volume:

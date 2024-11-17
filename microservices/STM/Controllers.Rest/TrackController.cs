@@ -50,16 +50,16 @@ public class TrackController : ControllerBase
             _logger.LogInformation($"Je suis le leader ? {DBUtils.IsLeader}");
            
             bool isLeader = DBUtils.IsLeader;
-            if (isLeader)
-            {
+           // if (isLeader)
+          //  {
                 var update = await _consumer.ConsumeNext<ApplicationRideTrackingUpdated>(new CancellationTokenSource(timeoutInMs).Token);
 
                 _logger.LogInformation($"update du bus {update}");
                 return Ok(update);
-            } else
-            {
-                return Unauthorized("Unauthorized");
-            }
+           // } else
+           // {
+           //    return Unauthorized("Unauthorized");
+           // }
         }
         catch (OperationCanceledException)
         {

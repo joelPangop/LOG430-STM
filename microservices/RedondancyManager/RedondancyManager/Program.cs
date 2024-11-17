@@ -1,15 +1,19 @@
 ﻿using Docker.DotNet;
 using Docker.DotNet.Models;
 using MassTransit;
+using MassTransit.Transports;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Newtonsoft.Json;
 using RedondancyManager;
+using RestSharp;
 using ServiceMeshHelper;
 using ServiceMeshHelper.BusinessObjects;
 using ServiceMeshHelper.BusinessObjects.InterServiceRequests;
 using ServiceMeshHelper.Controllers;
 using StackExchange.Redis;
 using System;
+using System.Text;
 using System.Threading.Channels;
 using RoutingData = RedondancyManager.RoutingData;
 
@@ -17,31 +21,52 @@ class Program
 {
     private static readonly HttpClient client = new HttpClient();
     private static RoutingData routeData = new RoutingData();
+    private static string stmEndpoint = "";
+    private static string tcEndpoint = "";
 
     static async Task Main(string[] args)
     {
         //Thread.Sleep(5000);
         var builder = WebApplication.CreateBuilder(args as string[]);
-        await GetContainerPorts("TripComparator");
-        await GetContainerPorts("STM");
+        var dockerClient = new DockerClientConfiguration(new Uri("unix:///var/run/docker.sock")).CreateClient();
+
+        await GetContainerPorts(dockerClient, "STM");
+
+        Thread.Sleep(2000);
+
+        await GetContainerPorts(dockerClient, "TripComparator");
 
         var app = builder.Build();
 
         await app.RunAsync();
     }
 
-    private static async Task<string?> GetContainerPorts(string containerName)
+    private static async Task<string?> GetContainerPorts(DockerClient client, string containerName)
     {
-        int retryCount = 5; // Nombre de tentatives de réessai
+        int retryCount = 10; // Nombre de tentatives de réessai
         int delay = 2000;   // Délai entre chaque tentative (en millisecondes)
+
+        var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
+        var allResults = RestController.GetAddress(containerName, LoadBalancingMode.Broadcast).Result;
+        var allResultsList = allResults.ToList();
+
+        Console.WriteLine($"Liste des conteneurs {containerName}");
+        // Parcours ou utilisation des résultats
+        foreach (var result in allResults)
+        {
+            if(result.Host.Equals(routingData.Host) && !result.Port.Equals(routingData.Port)) {
+                preventOtherContainers(containerName, result.Host, result.Port);
+            }
+            Console.WriteLine($"{containerName} Host: {result.Host}, Port: {result.Port} ");
+        }
+        routeData.Host = routingData.Host;
+        routeData.Port = routingData.Port;
+        string response = "";
 
         for (int i = 0; i < retryCount; i++)
         {
             try
             {
-                var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
-                routeData.Host = routingData.Host;
-                routeData.Port = routingData.Port;
 
                 var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/leader";
 
@@ -63,17 +88,27 @@ class Program
                 var redis = ConnectionMultiplexer.Connect("redis:6379"); // Remplace "localhost" par l'adresse de ton serveur Redis
                 var db = redis.GetDatabase();
 
+                // Lancer le PingLoop pour vérifier la disponibilité continue
+                string pingEndPoint = $"http://{routingData.Host}:{routingData.Port}/LoadBalancing/alive";
+
                 if (containerName == "STM")
                 {
                     string? key = "STM Leader";
+                    stmEndpoint = pingEndPoint;
+                    pingThread(client, containerName, stmEndpoint);
                     db.StringSet(key, $"http://{routeData.Host}:{routeData.Port}");
+                    Console.WriteLine($"STM Leader endpoint: http://{routeData.Host}:{routeData.Port}");
+                } else
+                {
+                    tcEndpoint = pingEndPoint;
+                    pingThread(client, containerName, tcEndpoint);
                 }
 
-                // Lancer le PingLoop pour vérifier la disponibilité continue
-                string pingEndPoint = $"http://{routingData.Host}:{routingData.Port}/LoadBalancing/alive";
-                Thread thread = new Thread(async () => await PingLoop(containerName, pingEndPoint));
-                thread.Start();
+                //Thread thread = new Thread(async () => await PingLoop(client, containerName, pingEndPoint));
+                //thread.Start();
+
                 return JsonConvert.DeserializeObject<string?>(restResponse.Content);
+
             }
             catch (Exception ex)
             {
@@ -91,6 +126,62 @@ class Program
         return null;
     }
 
+    private static async Task<string?> preventOtherContainers(string containerName, string host, string port)
+    {
+        int retryCount = 10; // Nombre de tentatives de réessai
+        int delay = 2000;   // Délai entre chaque tentative (en millisecondes)
+
+        for (int i = 0; i < retryCount; i++)
+        {
+            try
+            {
+
+                var endpoint = $"http://{host}:{port}/LoadBalancing/notleader";
+
+                var jsonContent = new StringContent(
+                    JsonConvert.SerializeObject("0"),
+                    Encoding.UTF8,
+                    "application/json"
+                );
+
+                Console.WriteLine($"Not leader endpoint: {endpoint}");
+
+                var res = await RestController.Get(new GetRoutingRequest()
+                {
+                    TargetService = containerName,
+                    Endpoint = endpoint,
+                    Mode = LoadBalancingMode.RoundRobin
+                });
+
+                var restResponse = await res!.ReadAsync();
+                if (restResponse?.Content == null)
+                {
+                    return null;
+                }
+
+                return JsonConvert.DeserializeObject<string?>(restResponse.Content);
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Tentative {i + 1} échouée : {ex.Message}");
+                if (i == retryCount - 1)
+                {
+                    // Arrête les tentatives après avoir atteint le nombre maximal de réessais
+                    Console.WriteLine("Impossible de se connecter au service après plusieurs tentatives.");
+                    return null;
+                }
+                await Task.Delay(delay); // Attendre avant la prochaine tentative
+            }
+        }
+
+        return null;
+    }
+    private static void pingThread(DockerClient client, string containerName, string pingEndPoint)
+    {
+        Thread thread = new Thread(async () => await PingLoop(client, containerName, pingEndPoint));
+        thread.Start();
+    }
 
     static string GetRandomKey(IDictionary<string, IList<PortBinding>> dictionary, Random random)
     {
@@ -99,18 +190,18 @@ class Program
         return keys[randomIndex];
     }
 
-    private static async Task PingLoop(string containerName, string endpoint)
+    private static async Task PingLoop(DockerClient client, string containerName, string endpoint)
     {
         try
         {
-            while (await PingEcho(containerName, endpoint) == "IsAlive")
+            while (await PingEcho(client, containerName, endpoint) == "IsAlive")
             {
                 await Task.Delay(100); // Optionnel : Ajouter un délai pour éviter les appels excessifs
             }
-            Console.WriteLine($"{endpoint} est mort");
+            Console.WriteLine($"{containerName}: {endpoint} est mort");
             Console.WriteLine("Reexecuter les requetes en cours");
 
-            await ExecuteProcessesAsync(containerName);
+            await ExecuteProcessesAsync(client, containerName);
             Console.WriteLine("Requetes en cours reeexecutees");
         }
         catch (ChannelClosedException ex)
@@ -124,7 +215,7 @@ class Program
         }
     }
 
-    private static async Task<string?> PingEcho(string containerName, string endpoint)
+    private static async Task<string?> PingEcho(DockerClient client, string containerName, string endpoint)
     {
         try
         {
@@ -140,11 +231,11 @@ class Program
             {
                 Console.WriteLine("Is not alive.");
                 Console.WriteLine("Search new leader.");
-                await GetContainerPorts(containerName);
+                await GetContainerPorts(client, containerName);
                 return null;
             }
 
-            Console.WriteLine($"Is alive? : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+            Console.WriteLine($"{containerName} is alive?: {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
             return JsonConvert.DeserializeObject<string?>(restResponse.Content);
         }
         catch (ChannelClosedException ex)
@@ -202,7 +293,7 @@ class Program
             }
             else if (valueRequest.Equals("RouteTime/Get"))
             {
-
+                await RoutingGet(valueCoordonnees, containerName);
             }
             else if (valueRequest.Equals("Track/GetTrackingUpdate"))
             {
@@ -216,10 +307,11 @@ class Program
 
     }
 
-    public static async Task ExecuteProcessesAsync(string containerName)
+    public static async Task ExecuteProcessesAsync(DockerClient client, string containerName)
     {
-        await GetContainerPorts(containerName);
-        await RestartProcess(containerName);
+        await GetContainerPorts(client, containerName);
+        if (containerName.Equals("TripComparator"))
+            await RestartProcess(containerName);
     }
 
     private static async Task<string?> Consume(string valueCoordonnees, string containerName)
@@ -261,6 +353,9 @@ class Program
     {
         //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
         var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/optimalBuses";
+
+        Console.WriteLine($"New endpoint: {endpoint}");
+
         var busCoordinates = JsonConvert.DeserializeObject<Coordinates>(valueCoordonnees);
 
         var res = await RestController.Get(new GetRoutingRequest()
@@ -279,6 +374,16 @@ class Program
                         Name = "toLatitudeLongitude",
                         Value = busCoordinates.DestinationCoordinates
                     },
+                     new()
+                    {
+                        Name = "host",
+                        Value = routeData.Host
+                    },
+                      new()
+                    {
+                        Name = "port",
+                        Value = routeData.Port
+                    }
                 },
             Mode = LoadBalancingMode.RoundRobin
         });
@@ -297,6 +402,8 @@ class Program
         //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
         var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/beginTracking";
 
+        Console.WriteLine($"New endpoint: {endpoint}");
+
         var res = await RestController.Get(new GetRoutingRequest()
         {
             TargetService = containerName,
@@ -307,6 +414,16 @@ class Program
                     {
                         Name = "stmBus",
                         Value = valueCoordonnees
+                    },
+                     new()
+                    {
+                        Name = "host",
+                        Value = routeData.Host
+                    },
+                      new()
+                    {
+                        Name = "port",
+                        Value = routeData.Port
                     }
                 },
             Mode = LoadBalancingMode.RoundRobin
@@ -326,10 +443,73 @@ class Program
         //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
         var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/getTrackingUpdate";
 
+        Console.WriteLine($"New endpoint: {endpoint}");
+
         var res = await RestController.Get(new GetRoutingRequest()
         {
             TargetService = containerName,
             Endpoint = endpoint,
+            Params = new List<NameValue>()
+                {
+                     new()
+                    {
+                        Name = "host",
+                        Value = routeData.Host
+                    },
+                      new()
+                    {
+                        Name = "port",
+                        Value = routeData.Port
+                    }
+                },
+            Mode = LoadBalancingMode.RoundRobin
+        });
+
+        var restResponse = await res!.ReadAsync();
+        if (restResponse?.Content == null)
+        {
+            return null;
+        }
+        Console.WriteLine($"{containerName} Leader ? : {routeData.Host}:{routeData.Port} : {JsonConvert.DeserializeObject<string?>(restResponse.Content)}");
+        return restResponse?.Content;
+    }
+
+    private static async Task<string?> RoutingGet(string valueCoordonnees, string containerName)
+    {
+        //var routingData = RestController.GetAddress(containerName, LoadBalancingMode.RoundRobin).Result.First();
+        var endpoint = $"http://{routeData.Host}:{routeData.Port}/LoadBalancing/routingget";
+
+        Console.WriteLine($"New endpoint: {endpoint}");
+
+        var busCoordinates = JsonConvert.DeserializeObject<Coordinates>(valueCoordonnees);
+
+        var res = await RestController.Get(new GetRoutingRequest()
+        {
+            TargetService = containerName,
+            Endpoint = endpoint,
+            Params = new List<NameValue>()
+                {
+                    new()
+                    {
+                        Name = "fromLatitudeLongitude",
+                        Value = busCoordinates.StartingCoordinates
+                    },
+                    new()
+                    {
+                        Name = "toLatitudeLongitude",
+                        Value = busCoordinates.DestinationCoordinates
+                    },
+                     new()
+                    {
+                        Name = "host",
+                        Value = routeData.Host
+                    },
+                      new()
+                    {
+                        Name = "port",
+                        Value = routeData.Port
+                    }
+                },
             Mode = LoadBalancingMode.RoundRobin
         });
 
