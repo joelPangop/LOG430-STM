@@ -16,6 +16,7 @@ using ServiceMeshHelper.BusinessObjects;
 using ServiceMeshHelper.BusinessObjects.InterServiceRequests;
 using ServiceMeshHelper.Controllers;
 using StackExchange.Redis;
+using static MassTransit.Logging.DiagnosticHeaders.Messaging;
 using static MassTransit.ValidationResultExtensions;
 
 namespace Configuration
@@ -89,7 +90,7 @@ namespace Configuration
                 Console.WriteLine("Je ne suis pas leader et je configure RabbitMQ"); 
             }
             else Console.WriteLine("Je ne suis pas leader donc je ne configure pas RabbitMQ");
-            ConfigureMassTransit(services);
+            ConfigureMassTransitAsync(services);
 
             services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(CompareTripController).Assembly));
             //services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(ReconnectionController).Assembly));
@@ -119,7 +120,7 @@ namespace Configuration
             services.AddScoped<IBusInfoProvider, StmClient>();
         }
 
-        private static void ConfigureMassTransit(IServiceCollection services)
+        private static async Task ConfigureMassTransitAsync(IServiceCollection services)
         {
             var hostInfo = new HostInfo();
             
@@ -131,41 +132,37 @@ namespace Configuration
             {
                 x.AddConsumer<TripComparatorMqController>();
 
-                x.UsingRabbitMq((context, cfg) =>
+                x.UsingRabbitMq(async (context, cfg) =>
                 {
-                    cfg.Host($"rabbitmq://{ routingData.Host }:{routingData.Port}", c =>
-                    {
-                        c.RequestedConnectionTimeout(100);
-                        c.Heartbeat(TimeSpan.FromMilliseconds(50));
-                        c.PublisherConfirmation = true;
-                    });
+                    string connexion_Str = await TcpController.GetTcpSocketForRabbitMq("EventStream");
 
-                    cfg.Message<BusPositionUpdated>(topologyConfigurator => topologyConfigurator.SetEntityName("bus_position_updated"));
-                    cfg.Message<CoordinateMessage>(topologyConfigurator => topologyConfigurator.SetEntityName("coordinate_message"));
+                    cfg.Host(connexion_Str, c =>
+                {
+                    Console.WriteLine($"Host: {routingData.Host}, Port: {routingData.Port}");
+                 
+                    c.RequestedConnectionTimeout(100);
+                    c.Heartbeat(TimeSpan.FromMilliseconds(50));
+                    c.PublisherConfirmation = true;
 
-                    cfg.ReceiveEndpoint(uniqueQueueName, endpoint =>
-                    {
-                        endpoint.ConfigureConsumeTopology = false;
-
-                        endpoint.Bind<CoordinateMessage>(binding =>
-                        {
-                            binding.ExchangeType = ExchangeType.Topic;
-                            binding.RoutingKey = "trip_comparison.query";
-                        });
-                        Console.WriteLine("Appel de la fonction ConfigureConsumer");
-                        endpoint.ConfigureConsumer<TripComparatorMqController>(context);
-                    });
-
-                    if (DBUtils.IsLeader)
-                    {
-                        Console.WriteLine("Je suis le leader");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Je ne suis pas le leader");
-                    }
-                        cfg.Publish<BusPositionUpdated>(p => p.ExchangeType = ExchangeType.Topic);
                 });
+
+                cfg.Message<BusPositionUpdated>(topologyConfigurator => topologyConfigurator.SetEntityName("bus_position_updated"));
+                cfg.Message<CoordinateMessage>(topologyConfigurator => topologyConfigurator.SetEntityName("coordinate_message"));
+
+                cfg.ReceiveEndpoint(uniqueQueueName, endpoint =>
+                {
+                    endpoint.ConfigureConsumeTopology = false;
+
+                    endpoint.Bind<CoordinateMessage>(binding =>
+                    {
+                        binding.ExchangeType = ExchangeType.Topic;
+                        binding.RoutingKey = "trip_comparison.query";
+                    });
+                    Console.WriteLine("Appel de la fonction ConfigureConsumer");
+                    endpoint.ConfigureConsumer<TripComparatorMqController>(context);
+                });
+                cfg.Publish<BusPositionUpdated>(p => p.ExchangeType = ExchangeType.Topic);
+            });
             });
         }
 

@@ -35,8 +35,8 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
         _logger.LogInformation($"Je suis le leader ? { DBUtils.IsLeader}");
 		
 		bool isLeader = DBUtils.IsLeader;
-        if (isLeader)
-        {
+        // if (isLeader)
+        // {
             string? startingCoordinates = string.IsNullOrEmpty(_startingCoordinates) ? context.Message.StartingCoordinates : _startingCoordinates, destinationCoordinates = string.IsNullOrEmpty(_destinationCoordinates) ? context.Message.DestinationCoordinates : _destinationCoordinates;
 
             _logger.LogInformation($"Comparing trip duration from {startingCoordinates} to {destinationCoordinates}");
@@ -47,10 +47,11 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
 
             _ = _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.PollTrackingUpdate(producer!.Writer));
      
+             //if (isLeader)
             _ = _backOffRetryPolicy.ExecuteAsync(async () => await _compareTimes.WriteToStream(producer.Reader));
 
             string RemoveWhiteSpaces(string s) => s.Replace(" ", "");
-        }
+        // }
 
     }
 

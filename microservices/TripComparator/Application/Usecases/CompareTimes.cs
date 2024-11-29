@@ -99,10 +99,14 @@ namespace Application.Usecases
 
         public async Task WriteToStream(ChannelReader<IBusPositionUpdated> channelReader)
         {
-            await foreach (var busPositionUpdated in channelReader!.ReadAllAsync())
-            {
-                await _dataStreamWriteModel.Produce(busPositionUpdated);
-            }
+            //if (DBUtils.IsLeader)
+            //{
+                 await foreach (var busPositionUpdated in channelReader!.ReadAllAsync())
+                {
+                    await _dataStreamWriteModel.Produce(busPositionUpdated);
+                }
+            //}
+
         }
     }
 }

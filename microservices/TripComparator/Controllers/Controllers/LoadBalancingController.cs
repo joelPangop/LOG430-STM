@@ -49,7 +49,7 @@ namespace Controllers.Controllers
         [ActionName("alive")]
         public async Task<ActionResult<string>> GetAlive()
         {
-            _logger.LogInformation("Service is alive");
+            //_logger.LogInformation("Service is alive");
 
             return Ok("IsAlive");
         }
