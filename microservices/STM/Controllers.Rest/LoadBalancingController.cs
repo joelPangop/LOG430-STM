@@ -14,6 +14,7 @@ namespace Controllers.Rest
     public class LoadBalancingController : ControllerBase
     {
         private readonly ILogger<LoadBalancingController> _logger;
+        public static event Action OnLeaderSet;
         public LoadBalancingController(ILogger<LoadBalancingController> logger)
         {
             this._logger = logger;
@@ -23,9 +24,11 @@ namespace Controllers.Rest
         [ActionName("leader")]
         public async Task<ActionResult<string>> GetLeader()
         {
-            _logger.LogInformation("I am the leader");
+            //_logger.LogInformation("I am the leader");
             DBUtils.IsLeader = true;
             _logger.LogInformation($"[GetAlive] Leader ? {DBUtils.IsLeader}");
+
+            OnLeaderSet?.Invoke();
             return Ok("1");
         }
 
@@ -44,7 +47,7 @@ namespace Controllers.Rest
         [ActionName("alive")]
         public async Task<ActionResult<string>> GetAlive()
         {
-            _logger.LogInformation("Service is alive");
+            //_logger.LogInformation("Service is alive");
 
             return Ok("IsAlive");
         }

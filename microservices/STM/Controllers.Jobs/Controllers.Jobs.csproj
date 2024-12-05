@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Application.Commands\Application.Commands.csproj" />
+    <ProjectReference Include="..\Controllers.Rest\Controllers.Rest.csproj" />
   </ItemGroup>
 
 </Project>

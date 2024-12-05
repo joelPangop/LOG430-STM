@@ -45,6 +45,12 @@ public class TripComparatorMqController : IConsumer<CoordinateMessage>
                 RemoveWhiteSpaces(startingCoordinates),
                 RemoveWhiteSpaces(destinationCoordinates)));
 
+            var jsonWriter = JsonConvert.SerializeObject(producer!.Writer);
+            _ = DBUtils.Db.StringSetAsync("jsonWriter", jsonWriter);
+
+            var jsonReader = JsonConvert.SerializeObject(producer!.Reader);
+            _ = DBUtils.Db.StringSetAsync("jsonReader", jsonReader);
+
             _ = _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.PollTrackingUpdate(producer!.Writer));
      
             _ = _backOffRetryPolicy.ExecuteAsync(async () => await _compareTimes.WriteToStream(producer.Reader));

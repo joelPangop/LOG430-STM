@@ -1,9 +1,12 @@
 ﻿using Application.DTO;
 using Application.Interfaces;
+using Application.Interfaces.Policies;
+using Application.Usecases;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Reflection.Metadata;
+using System.Threading.Channels;
 
 namespace Controllers.Controllers
 {
@@ -16,7 +19,14 @@ namespace Controllers.Controllers
         private readonly IRouteTimeProvider _routeTimeProvider;
         private readonly TripComparatorMqController _tripComparatorMq;
 
-        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider, TripComparatorMqController tripComparatorMq, IRouteTimeProvider routeTimeProvider)
+        private readonly IInfiniteRetryPolicy<TripComparatorMqController> _infiniteRetryPolicy;
+        private readonly IBackOffRetryPolicy<TripComparatorMqController> _backOffRetryPolicy;
+        private readonly CompareTimes _compareTimes;
+
+        public LoadBalancingController(ILogger<LoadBalancingController> logger, IBusInfoProvider _iBusInfoProvider, TripComparatorMqController tripComparatorMq, IRouteTimeProvider routeTimeProvider,
+            CompareTimes compareTimes,
+        IInfiniteRetryPolicy<TripComparatorMqController> infiniteRetryPolicy,
+        IBackOffRetryPolicy<TripComparatorMqController> backOffRetryPolicy)
         {
             this._logger = logger;
             this._iBusInfoProvider = _iBusInfoProvider;
@@ -49,7 +59,7 @@ namespace Controllers.Controllers
         [ActionName("alive")]
         public async Task<ActionResult<string>> GetAlive()
         {
-            _logger.LogInformation("Service is alive");
+            //_logger.LogInformation("Service is alive");
 
             return Ok("IsAlive");
         }
@@ -90,8 +100,30 @@ namespace Controllers.Controllers
             _logger.LogInformation($"Reexecution de getTrackingUpdate");
             DBUtils.Db.StringSet("restart", "1");
 
-            await _iBusInfoProvider.GetTrackingUpdate();
-            await _tripComparatorMq.NewConsume();
+            if (DBUtils.Db.KeyExists("jsonWriter"))
+            {
+                var value = DBUtils.Db.StringGet("jsonWriter");
+                // Vérifier que la valeur n'est pas vide ou null
+                if (!string.IsNullOrEmpty(value))
+                {
+                    ChannelWriter<IBusPositionUpdated>? test = JsonConvert.DeserializeObject<ChannelWriter<IBusPositionUpdated>>(value!);
+                    _ = _infiniteRetryPolicy.ExecuteAsync(async () => await _compareTimes.PollTrackingUpdate(test!));
+                }
+            }
+
+            if (DBUtils.Db.KeyExists("jsonReader"))
+            {
+                var value = DBUtils.Db.StringGet("jsonReader");
+                // Vérifier que la valeur n'est pas vide ou null
+                if (!string.IsNullOrEmpty(value))
+                {
+                    ChannelReader<IBusPositionUpdated>? test = JsonConvert.DeserializeObject<ChannelReader<IBusPositionUpdated>>(value!);
+                    _ = _backOffRetryPolicy.ExecuteAsync(async () => await _compareTimes.WriteToStream(test!));
+                }
+            }
+
+            //await _iBusInfoProvider.GetTrackingUpdate();
+            //await _tripComparatorMq.NewConsume();
             return Ok("GetTrackingUpdate reexecute");
         }
 

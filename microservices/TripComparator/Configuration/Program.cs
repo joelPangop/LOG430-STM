@@ -126,14 +126,20 @@ namespace Configuration
             var routingData = RestController.GetAddress(hostInfo.GetMQServiceName(), LoadBalancingMode.RoundRobin).Result.First();
 
             string uniqueQueueName = $"time_comparison.node_controller-to-any.query.{Guid.NewGuid()}";
+            services.AddLogging(configure => configure.AddConsole().AddDebug());
 
             services.AddMassTransit(x =>
             {
+
                 x.AddConsumer<TripComparatorMqController>();
 
                 x.UsingRabbitMq((context, cfg) =>
                 {
-                    cfg.Host($"rabbitmq://{ routingData.Host }:{routingData.Port}", c =>
+                    string connexion_Str = TcpController.GetTcpSocketForRabbitMq("EventStream").Result;
+
+                    Console.WriteLine($"connexion_Str {connexion_Str}");
+
+                    cfg.Host(connexion_Str, c =>
                     {
                         c.RequestedConnectionTimeout(100);
                         c.Heartbeat(TimeSpan.FromMilliseconds(50));
@@ -155,16 +161,8 @@ namespace Configuration
                         Console.WriteLine("Appel de la fonction ConfigureConsumer");
                         endpoint.ConfigureConsumer<TripComparatorMqController>(context);
                     });
-
-                    if (DBUtils.IsLeader)
-                    {
-                        Console.WriteLine("Je suis le leader");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Je ne suis pas le leader");
-                    }
-                        cfg.Publish<BusPositionUpdated>(p => p.ExchangeType = ExchangeType.Topic);
+                 
+                    cfg.Publish<BusPositionUpdated>(p => p.ExchangeType = ExchangeType.Topic);
                 });
             });
         }
